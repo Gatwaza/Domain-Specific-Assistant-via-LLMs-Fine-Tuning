@@ -6,7 +6,7 @@ Language barriers remain a critical challenge in hospitals and healthcare center
 
 The system leverages **Hugging Face multilingual models**, implemented and fine-tuned using **TensorFlow**, to enable interpretation and conversational support for **Sub-Saharan African languages** in clinical contexts. The chatbot is designed as an assistive tool to improve access, safety, and quality of healthcare delivery in humanitarian and low-resource environments.
 
-This repository is under active development and will be continuously updated as new models, languages, and evaluation results are integrated.
+This repository is under active development.
 
 ---
 
@@ -14,7 +14,7 @@ This repository is under active development and will be continuously updated as 
 
 With over **30 million forcibly displaced people in Africa** and more than **2,000 languages spoken across the continent**, language barriers significantly hinder access to timely and effective healthcare. Refugees and displaced populations frequently encounter healthcare providers who do not speak their native languages, leading to miscommunication, misdiagnosis, delayed treatment, and reduced quality of care.
 
-In many humanitarian and low-resource healthcare settings, professional medical interpreters are unavailable or insufficient. This project explores the use of **multilingual AI-powered chatbot systems** as assistive interpretation tools to bridge communication gaps between patients and healthcare professionals while acknowledging the ethical and clinical limitations of automated systems.
+In many humanitarian and low-resource healthcare settings, professional medical interpreters are unavailable or insufficient. This project explores the use of **multilingual interpretation and conversational models powered chatbot systems** as assistive interpretation tools to bridge communication gaps between patients and healthcare professionals while acknowledging the ethical and clinical limitations of automated systems.
 
 ---
 
@@ -57,7 +57,7 @@ In many humanitarian and low-resource healthcare settings, professional medical 
 * Selected Sub-Saharan African languages (e.g., Kinyarwanda, Swahili, Amharic – subject to dataset availability)
 * English and/or French as pivot languages
 
-> Language coverage will expand as additional datasets and pretrained models become available.
+> Language coverage will depend on availability.
 
 ---
 
@@ -96,6 +96,131 @@ Response → Translation Model → Patient Language
 ```
 
 This modular design allows independent evaluation of translation quality and conversational performance.
+
+---
+
+## Domain-Specific Assistant & Fine-Tuning Strategy
+
+### Objective
+
+In addition to multilingual interpretation, this project explicitly focuses on building a **domain-specific healthcare assistant** by fine-tuning a **Large Language Model (LLM)**. The fine-tuned model is expected to understand user queries and generate **relevant, accurate, and context-aware responses** within the healthcare domain, while handling out-of-domain queries safely and appropriately.
+
+The assistant is approached as a **generative question–answering (QA) system**, capable of producing free-text responses rather than selecting from predefined answers.
+
+---
+
+### Model Selection for Efficient Fine-Tuning
+
+A modern generative LLM will be selected from **Hugging Face** with careful consideration of:
+
+* Compatibility with **Google Colab free GPU resources**
+* Parameter efficiency
+* Strong baseline language understanding
+
+Recommended candidate models include:
+
+* **Gemma** (lightweight, modern, instruction-friendly)
+* **TinyLLaMA** (resource-efficient and suitable for experimentation)
+* Other small-to-medium-scale open LLMs that balance capability with practical training constraints
+
+The implementation will primarily use **TensorFlow**, while leveraging the Hugging Face ecosystem and modern fine-tuning utilities.
+
+---
+
+### Parameter-Efficient Fine-Tuning (PEFT)
+
+To enable fine-tuning on limited hardware, this project employs **parameter-efficient fine-tuning techniques**, specifically **LoRA (Low-Rank Adaptation)** via the `peft` library. This approach allows effective customization of large models without updating all parameters, making it a foundational technique for modern LLM adaptation.
+
+---
+
+### Dataset Collection & Preparation
+
+Fine-tuning requires a curated dataset of **instruction–response (question–answer) pairs** aligned with the **multilingual healthcare interpretation domain**.
+
+#### Potential Dataset Sources
+
+* **Hugging Face Datasets Hub** ([https://huggingface.co/datasets](https://huggingface.co/datasets))
+* **Kaggle Datasets** ([https://kaggle.com/datasets](https://kaggle.com/datasets))
+* **UCI Machine Learning Repository** ([https://archive.ics.uci.edu](https://archive.ics.uci.edu))
+* **Google Dataset Search** ([https://datasetsearch.research.google.com](https://datasetsearch.research.google.com))
+* Academic datasets such as:
+
+  * **MedQA** (healthcare)
+  * **Medical Meadow** datasets (e.g., `medalpaca/medical_meadow_medical_flashcards`)
+
+Datasets may be adapted or converted into QA format using domain documents and multilingual interpretation scenarios.
+
+#### Dataset Requirements
+
+* Format: Instruction–response (QA) pairs
+* Coverage: Diverse healthcare intents and scenarios
+* Size: **1,000–5,000 high-quality examples** to balance efficiency and performance
+
+#### Preprocessing Steps
+
+* Tokenization using Hugging Face tokenizers
+* Text normalization and cleaning
+* Formatting into consistent instruction–response templates
+* Ensuring sequence lengths fit within the model context window
+
+---
+
+### Fine-Tuning Procedure
+
+The selected pre-trained LLM will be fine-tuned using the prepared dataset with the following considerations:
+
+* **LoRA-based PEFT** for efficiency
+* Training conducted on Google Colab GPUs
+* Hyperparameter tuning, including:
+
+  * Learning rate: typically **1e-4 to 5e-5**
+  * Batch size: **2–4** with gradient accumulation
+  * Optimizer selection
+  * Training epochs: **1–3**
+
+All experiments will be documented, including:
+
+* Hyperparameter configurations
+* GPU memory usage
+* Training time
+* Observed performance changes
+
+An **experiment tracking table** will be maintained to record and compare results across runs.
+
+---
+
+### Evaluation & Comparison
+
+Model evaluation will include both **quantitative** and **qualitative** methods:
+
+* **BLEU Score** – generation quality
+* **ROUGE Score** – overlap with reference answers
+* **Perplexity** – language model fluency
+
+Comparisons will be made between:
+
+* The **base pre-trained model**
+* The **fine-tuned domain-specific model**
+
+Qualitative testing will involve interactive probing to assess:
+
+* Clinical relevance
+* Faithfulness to the healthcare domain
+* Robustness to out-of-domain queries
+
+---
+
+### Deployment & User Interaction
+
+The fine-tuned model will be deployed with an interactive interface to enable user access. Deployment options include:
+
+* **Gradio** (recommended for simplicity and Colab compatibility)
+* Flask or Streamlit (alternative options)
+
+The interface will allow users to:
+
+* Enter healthcare-related queries
+* Receive interpreted and domain-specific responses from the customized LLM
 
 ---
 
