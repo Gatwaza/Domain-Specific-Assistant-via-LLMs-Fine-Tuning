@@ -299,11 +299,10 @@ UI functionality and usability testing will be expanded incrementally.
 
 ## Ethical Considerations & Limitations
 
-* This system is intended to **assist**, not replace, professional medical interpreters
-* Outputs must not be treated as medical advice
-* Patient privacy and data protection must be strictly respected
-* Performance limitations and bias in low-resource languages are acknowledged
-* Human oversight is required in clinical deployment scenarios
+* This system is intended for **academic activity**.
+* Outputs must not be treated as medical advice.
+* Patient privacy and data protection must be strictly respected.
+* Performance limitations and bias in low-resource languages are acknowledged.
 
 ---
 
@@ -311,7 +310,6 @@ UI functionality and usability testing will be expanded incrementally.
 
 * Expand supported African languages
 * Integrate speech-to-text and text-to-speech modules
-* Domain-specific fine-tuning on medical terminology
 * Lightweight and offline-capable model deployment
 * Clinical pilot studies and real-world validation
 
@@ -319,23 +317,12 @@ UI functionality and usability testing will be expanded incrementally.
 
 ## Project Status
 
-🚧 **Active Development**
+**Active Development**
 
 This repository and README will be updated continuously as the project evolves.
 
 ---
 
-## Contributions
-
-Contributions, feedback, and collaborations are welcome, particularly in:
-
-* Low-resource language datasets
-* Medical and healthcare NLP
-* UX/UI design for clinical environments
-* Ethical AI for humanitarian applications
-
----
-
 ## Disclaimer
 
-This project is for research and assistive purposes only. It is not a certified medical device and should not be used as a standalone solution for medical decision-making.
+This project is for academic purposes only. It is not a certified medical device and should not be used as a standalone solution for medical decision-making.
