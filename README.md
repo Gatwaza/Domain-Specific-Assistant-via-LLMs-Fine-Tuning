@@ -57,7 +57,7 @@ In many humanitarian and low-resource healthcare settings, professional medical 
 * Selected Sub-Saharan African languages (e.g., Kinyarwanda, Swahili, Amharic – subject to dataset availability)
 * English and/or French as pivot languages
 
-> Language coverage will depend on availability.
+> Language coverage will depend on availability
 
 ---
 
