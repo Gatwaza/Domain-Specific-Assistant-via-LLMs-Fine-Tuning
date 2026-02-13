@@ -17,6 +17,8 @@ The aim of this project is to fine-tune **TinyLlama/TinyLlama-1.1B-Chat-v1.0** t
 3. **Train/Validation/Test split:** 80:10:10, random seed = 42.  
    - **Purpose:** Ensures reproducibility and proper evaluation of generalization.
 
+4. **The training Samples**: The training dataset contains 14,497 samples.
+
 
 ## Data Preprocessing and Tokenization
 
