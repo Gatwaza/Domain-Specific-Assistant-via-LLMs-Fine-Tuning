@@ -1,164 +1,237 @@
-# Fine-tuning TinyLlama for Healthcare Question-Answering
+# Fine-Tuning TinyLlama for Medical Interpreter Question-Answering
 
-## Project Goal
-The aim of this project is to fine-tune **TinyLlama/TinyLlama-1.1B-Chat-v1.0** to perform **Healthcare Question-Answering (QA)** tasks. Using datasets like MedQuAD and AfrimedQA_v2, we leverage **LoRA + PEFT** techniques for **parameter-efficient domain adaptation**. By experimenting with different hyperparameters, tokenization strategies, optimizers, and memory optimization techniques, we aim to develop a **high-quality, reproducible healthcare QA model** suitable for deployment on limited-resource hardware.
+## Project Overview
 
+This project fine-tunes **TinyLlama/TinyLlama-1.1B-Chat-v1.0** to build a domain-specific **Medical Interpreter QA assistant**.
 
-## Dataset Sources and Curation
+Using **LoRA (PEFT)**, 4-bit quantization, and optimized preprocessing, I demonstrate how parameter-efficient fine-tuning can significantly improve domain performance under limited GPU resources.
 
-| Dataset | Source | Initial Size | Cleaned Size | QA Format | Role in Project |
-|---------|--------|--------------|--------------|-----------|----------------|
-| MedQuAD | Kaggle (`pythonafroz/medquad-medical-question-answer-for-ai-research`) | ~14,000 | ~13,800 | `### Instruction:\n{question}\n\n### Response:\n{answer}` | Provides a large, diverse set of medical questions and answers to teach the model general medical QA. |
-| AfrimedQA_v2 | HuggingFace (`intronhealth/afrimedqa_v2`) | ~1,200 | ~1,100 | `### Instruction:\n{question}\n\n### Response:\n{answer_rationale}` | Supplements MedQuAD with African-focused medical questions to improve cultural and regional relevance. |
+Four controlled experiments were conducted to evaluate:
 
-**Processing Steps:**
-1. Remove empty questions or answers to ensure high-quality training data.  
-2. Merge datasets for broader coverage.  
-3. **Train/Validation/Test split:** 80:10:10, random seed = 42.  
-   - **Purpose:** Ensures reproducibility and proper evaluation of generalization.
+* Training steps
+* Learning rate
+* Tokenization strategy
+* Label shifting alignment
 
-4. **The training Samples**: The training dataset contains 14,497 samples.
+The final & best of all experiment achieved:
 
+* **+64.02% ROUGE-2**
+* **+223.28% BLEU**
 
-## Data Preprocessing and Tokenization
+# Dataset
 
-| Experiment | Tokenization Approach | Padding | Max Length | Role in Project |
-|------------|--------------------|--------|------------|----------------|
-| Exp_001 | Dynamic padding (`padding=True`) | `tokenizer.pad_token = tokenizer.eos_token` | 512 | Reduces memory usage by padding sequences only to batch maximum; allows longer sequences without wasting memory. |
-| Exp_002 | Max-length padding (`padding="max_length"`) | `tokenizer.pad_token = tokenizer.eos_token` | 512 | Fixes sequence length for batch uniformity; may simplify some optimization but increases memory usage. |
-| Exp_003 | Max-length padding with explicit `[PAD]` token | Added `[PAD]` token if absent | 512 | Ensures consistent padding behavior across GPUs and experiments; critical for reproducibility. |
+| Dataset      | Source      | Initial Size |
+| ------------ | ----------- | ------------ |
+| MedQuAD      | Kaggle      | ~16,412      |
+| AfrimedQA_v2 | HuggingFace | ~15,275      |
 
-**Prompt formatting for all experiments:**
-```text
+After cleaning and merging:
+
+* **Unified dataset:** 18,122 QA pairs
+* **Split:** 80% Train / 10% Validation / 10% Test
+* **Training samples:** 14,497
+* **Seed:** 42
+
+### Prompt Format
+
+```
 ### Instruction:
 <question>
 
 ### Response:
 <answer>
-````
-
-* **Purpose:** Standardized instruction-response format improves model understanding and downstream QA generation consistency.
+```
 
 
-## Base Model Selection
+# Base Model
 
-* Model: **TinyLlama/TinyLlama-1.1B-Chat-v1.0**
-* **Why this model:**
-
-  * **Size:** ~1.1B parameters → light enough to fine-tune on GPUs like Colab.
-  * **Architecture:** LLaMA-based causal LM → well-suited for instruction-based QA.
-  * **Pre-training:** General text corpus → provides a solid starting point before domain adaptation.
-  * **Efficiency:** Compatible with 4-bit quantization and bf16 → reduces memory footprint while maintaining performance.
-
-**Role:** Serves as the frozen backbone for LoRA adaptation; allows quick experimentation without full model retraining.
+* **Model:** TinyLlama-1.1B-Chat-v1.0
+* 1.1B parameters
+* LLaMA-based causal LM
+* 4-bit compatible
+* Suitable for Colab GPUs
 
 
-## Fine-tuning Strategy: LoRA & PEFT
+# LoRA Configuration (Shared Across All Experiments)
 
-| Parameter      | Value                                                                   | Purpose                                                                                                  |
-| -------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| r              | 8                                                                       | Low-rank adaptation dimension; controls capacity of LoRA layers.                                         |
-| lora_alpha     | 16                                                                      | Scales LoRA weight updates to match base model magnitude.                                                |
-| target_modules | ["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"] | Specifies which layers to adapt; focuses training on attention and feed-forward modules relevant for QA. |
-| lora_dropout   | 0.05                                                                    | Regularizes LoRA updates to reduce overfitting.                                                          |
-| bias           | "none"                                                                  | No additional bias parameters; keeps adaptation lightweight.                                             |
-| task_type      | TaskType.CAUSAL_LM                                                      | Indicates causal LM fine-tuning (next-token prediction) suitable for generative QA.                      |
-
-**Role in Project:** Enables **parameter-efficient fine-tuning**, training only ~1–5% of total model parameters, drastically reducing memory and compute requirements.
-
-
-## Memory-Efficient Techniques
-
-| Experiment | Quantization                 | Compute Dtype | Gradient Checkpointing | Purpose                                                                                                              |
-| ---------- | ---------------------------- | ------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Exp_001    | 4-bit (`BitsAndBytesConfig`) | bfloat16      | False                  | Reduces memory usage; allows fitting larger batches. Falls back to full precision if 4-bit fails.                    |
-| Exp_002    | Attempted 4-bit              | bfloat16      | False                  | Tests feasibility of lightweight fine-tuning with small GPU memory; handles fallback cases gracefully.               |
-| Exp_003    | 4-bit                        | bfloat16      | True                   | Saves memory during training via gradient checkpointing; allows larger effective batch size and prevents OOM errors. |
-
-**Role:** Ensures experiments can run on limited GPU memory without sacrificing model quality.
+| Parameter            | Value                          |
+| -------------------- | ------------------------------ |
+| r                    | 8                              |
+| lora_alpha           | 16                             |
+| lora_dropout         | 0.05                           |
+| target_modules       | ["q_proj", "k_proj", "v_proj"] |
+| bias                 | "none"                         |
+| task_type            | CAUSAL_LM                      |
+| Trainable Parameters | **0.57%**                      |
 
 
-## Optimizer and Scheduler Differences
+# Training Setup (Shared)
 
-| Experiment | Optimizer        | Scheduler | Warmup Steps | Role                                                                                                   |
-| ---------- | ---------------- | --------- | ------------ | ------------------------------------------------------------------------------------------------------ |
-| Exp_001    | adamw_torch      | None      | 0            | Standard optimizer; stable for step-based training.                                                    |
-| Exp_002    | paged_adamw_8bit | cosine    | 20           | Tests optimizer with lower memory usage and cosine LR scheduling; warms up LR to stabilize training.   |
-| Exp_003    | adamw_torch      | None      | 0            | Standard optimizer; combined with gradient checkpointing to maintain stability for resumable training. |
-
-
-## Experiment Configurations
-
-| Experiment | Max Steps | Learning Rate | Batch Size (per device) | Grad Accum | Effective Batch | bf16           | fp16  | Checkpoint/Resume                  | Purpose/Notes                                                                                     |
-| ---------- | --------- | ------------- | ----------------------- | ---------- | --------------- | -------------- | ----- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Exp_001    | 908       | 5e-5          | 4                       | 8          | 32              | True           | False | Auto-resume from latest checkpoint | Step-based (~2 epochs); validates baseline LoRA adaptation and dynamic padding.                   |
-| Exp_002    | 400       | 1e-4          | 4                       | 8          | 32              | True (if CUDA) | False | Auto-resume with try/catch         | Explores optimizer LR effect, fixed padding, and scheduler behavior.                              |
-| Exp_003    | 400       | 2e-4          | 8                       | 4          | 32              | True           | False | Auto-resume enabled                | Full resumable training, gradient checkpointing; validates reproducibility and memory efficiency. |
+* 4-bit NF4 quantization
+* bfloat16 compute
+* Gradient checkpointing
+* Logging / saving every 50 steps
+* Resume from checkpoints enabled
+* Effective batch size: 32
 
 
-## Trainer Setup
+# Experiment Configurations
 
-All experiments use **HuggingFace `Trainer`**:
-
-* Model: LoRA-adapted TinyLlama.
-* TrainingArguments: includes batch size, gradient accumulation, LR, bf16, save/eval/log steps.
-* Datasets: `train_dataset`, `eval_dataset`.
-* Data collator: `DataCollatorForLanguageModeling(tokenizer, mlm=False)`.
-
-**Role:** Handles all training loops, evaluation, checkpointing, and logging automatically, making experiments reproducible.
+| Experiment | Steps | LR   | Batch | Key Focus                 |
+| ---------- | ----- | ---- | ----- | ------------------------- |
+| Exp_001    | 908   | 5e-5 | 32    | Baseline LoRA adaptation  |
+| Exp_002    | 400   | 1e-4 | 32    | Reduced steps impact      |
+| Exp_003    | 400   | 2e-4 | 32    | Higher learning rate      |
+| Exp_004    | 400   | 2e-4 | 32    | Label shifting correction |
 
 
-## Training Execution
+# Results Summary
 
-* **Resume logic:**
+## Exp_001 – Baseline
+
+* ROUGE-2: **+46.79%**
+* BLEU: **+114.61%**
+
+Strong initial gains; minor drop in strict F1 token overlap.
+
+
+## Exp_002 – Reduced Steps
+
+Performance declined across most metrics.
+
+Shows insufficient training steps limit adaptation.
+
+
+## Exp_003 – Higher LR
+
+* ROUGE-2: +0.21%
+* BLEU: +3.36%
+
+Minimal impact; LR alone not decisive.
+
+
+## Exp_004 – Label Shifting Fix (Breakthrough)
+
+| Metric       | Improvement  |
+| ------------ | ------------ |
+| ROUGE-1      | +16.15%      |
+| ROUGE-2      | **+64.02%**  |
+| ROUGE-L      | +20.87%      |
+| BLEU         | **+223.28%** |
+| BERTScore F1 | +0.75%       |
+
+Correct label alignment significantly improved fluency and n-gram overlap.
+
+
+# Evaluation Metrics
+
+* ROUGE-1 / ROUGE-2 / ROUGE-L
+* BLEU
+* F1 Score
+* BERTScore
+* Flesch-Kincaid
+* SMOG Index
+* Validation Loss & Perplexity
+
+
+# Deployment
+
+All LoRA adapters are available in the Hugging Face Project Space:Jeanrobert/tinyllama-medqa-gradio-demo-exp002.
+
+Adapters can be loaded into the base TinyLlama model for inference without retraining.
+
+
+# Google Colab Setup Guide
+
+Follow this order for smooth execution:
+
+### 1 Configure Runtime (Manual)
+
+* Runtime → Change runtime type
+* Enable **GPU**
+* Use **High-RAM** if available
+
+
+### 2 Run `library_name` (First Code Cell)
+
+Installs:
+
+* accelerate
+* bitsandbytes
+* datetime
+* datasets
+* evaluate
+* glob
+* google.colab
+* gradio
+* huggingface_hub
+* json
+* kagglehub
+* matplotlib
+* nltk
+* numpy
+* os
+* pandas
+* peft
+* pickle
+* re
+* rouge_score
+* seaborn
+* string
+* subprocess
+* sys
+* textstat
+* textwrap
+* time
+* torch
+* transformers
+
+Restart runtime after installation.
+
+
+### 3 Configure Hugging Face Token
+
+Add `HF_TOKEN` via Colab Secrets (Keys icon in left panel).
+
+
+### 4 Run `hf_login`
+
+Required before:
+
+* Pushing models
+* Accessing gated datasets
+* Deploying Gradio spaces
+
+
+### 5 Mount Google Drive
+
+Run `mount_drive_code` before:
+
+* Saving checkpoints
+* Loading datasets
+* Storing results
+
+Colab sessions are temporary — Drive ensures persistence.
+
+
+### Resume Logic
+
+Training resumes automatically:
 
 ```python
-checkpoints = [dir for dir in os.listdir(OUTPUT_DIR) if dir.startswith("checkpoint")]
-latest_checkpoint = sorted(checkpoints)[-1] if checkpoints else None
 trainer.train(resume_from_checkpoint=latest_checkpoint)
 ```
 
-* Ensures long-running experiments can **resume after interruptions**, critical for Colab or limited-resource GPUs.
-
-* **Metrics tracked:**
-
-  * Wall-clock training time
-  * Peak GPU memory usage (via `torch.cuda.max_memory_allocated()`)
+Prevents loss of progress during long runs.
 
 
-## Evaluation
+# Key Takeaways
 
-* Validation loss is computed using `trainer.evaluate()` → `eval_loss`.
-* Baseline model metrics for comparison:
+1. LoRA enables fine-tuning with only **0.57% trainable parameters**.
+2. 4-bit quantization allows training on limited hardware.
+3. Training steps and LR alone were not decisive.
+4. **Label shifting correction was the critical factor.**
+5. Exp_004 achieved the strongest performance gains.
 
-| Metric          | TinyLlama-1.1B-Chat-v1.0 (Pre-fine-tune) |
-| --------------- | ---------------------------------------- |
-| Validation Loss | ~2.15                                    |
-| Perplexity      | ~8.6                                     |
-
-**Role:** Provides a **quantitative measure of model improvement** after each fine-tuning experiment.
-
-
-## Saving LoRA Adapters
-
-* LoRA adapters are saved to:
-
-```text
-<OUTPUT_DIR>/lora_adapters
-```
-
-* Allows **loading adapters into base model for inference** without retraining the full model.
-* Ensures **persistent storage** via Google Drive for reproducibility and deployment.
-
-
-## Contribution of Each Experiment
-
-| Experiment | Contribution                                                                                                                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exp_001    | Baseline step-based fine-tuning with dynamic tokenization; establishes foundational LoRA adaptation for healthcare QA.                                      |
-| Exp_002    | Tests higher learning rate, alternative optimizer (paged_adamw_8bit), fixed-length tokenization, and LR scheduler; informs impact of hyperparameter tuning. |
-| Exp_003    | Full resumable training with gradient checkpointing; validates memory-efficient training, reproducibility, and checkpointing logic.                         |
-
-
-**Conclusion:**
-These experiments collectively explore **how tokenization, batch size, optimizer, scheduler, memory optimization, and LoRA configuration affect model performance**, building a **robust and reproducible healthcare QA TinyLlama model**.
+# Conclusion
+This project shows that LoRA-based fine-tuning of TinyLlama can significantly improve medical QA performance with minimal trainable parameters and limited hardware. The largest gains came from correcting label shifting, proving that proper target alignment is more impactful than simply increasing training steps or learning rate.
